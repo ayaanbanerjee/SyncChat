@@ -1,0 +1,8 @@
+.message-status {
+  font-size: 11px;
+  color: #999;
+}
+
+.message-status.read {
+  color: #4a90e2;
+}

@@ -1,0 +1,23 @@
+.online-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status.online {
+  color: #2ecc71;
+}
+
+.status.offline {
+  color: #e74c3c;
+}
+
+.online-count {
+  font-size: 11px;
+  color: #999;
+}
