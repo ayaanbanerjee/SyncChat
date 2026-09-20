@@ -1,113 +1,122 @@
-const userService = require('../services/userService');
+const { verifySocketToken } = require('../middleware/authMiddleware');
 const messageService = require('../services/messageService');
+const userService = require('../services/userService');
+const notificationService = require('../services/notificationService');
+const Conversation = require('../models/Conversation');
+const { getRedis } = require('../config/redis');
 
-const isValidPayload = (payload, requiredFields) => {
-  if (!payload || typeof payload !== 'object') {
-    return false;
+// In-memory presence fallback when Redis is not available
+const onlineUsers = new Map(); // userId -> Set of socketIds
+
+const setUserOnline = async (userId) => {
+  const redis = getRedis();
+  if (redis) {
+    await redis.sAdd('online_users', userId.toString());
+  } else {
+    if (!onlineUsers.has(userId.toString())) onlineUsers.set(userId.toString(), new Set());
   }
-  return requiredFields.every((field) => payload[field] !== undefined && payload[field] !== null);
+};
+
+const setUserOffline = async (userId) => {
+  const redis = getRedis();
+  if (redis) {
+    await redis.sRem('online_users', userId.toString());
+  } else {
+    onlineUsers.delete(userId.toString());
+  }
+};
+
+const isUserOnline = async (userId) => {
+  const redis = getRedis();
+  if (redis) {
+    return redis.sIsMember('online_users', userId.toString());
+  }
+  return onlineUsers.has(userId.toString());
 };
 
 const registerChatSocket = (io) => {
-  io.on('connection', (socket) => {
-    console.log(`Client connected: ${socket.id}`);
+  // Authenticate every socket connection with JWT
+  io.use(async (socket, next) => {
+    const token = socket.handshake.auth?.token;
+    const user = await verifySocketToken(token);
+    if (!user) {
+      return next(new Error('Authentication failed.'));
+    }
+    socket.user = user;
+    return next();
+  });
 
-    socket.on('user:join', (payload) => {
+  io.on('connection', async (socket) => {
+    const userId = socket.user._id.toString();
+    console.log(`Socket connected: ${socket.id} | User: ${socket.user.username}`);
+
+    // Track socket → user mapping for multi-tab support
+    if (!onlineUsers.has(userId)) onlineUsers.set(userId, new Set());
+    onlineUsers.get(userId).add(socket.id);
+
+    await setUserOnline(userId);
+
+    // Join all conversation rooms this user belongs to
+    const conversations = await Conversation.find({ members: userId }).select('_id');
+    conversations.forEach((c) => socket.join(c._id.toString()));
+
+    // Notify others that this user is online
+    socket.broadcast.emit('presence:update', { userId, isOnline: true });
+
+    // --- Typing ---
+    socket.on('typing:start', ({ conversationId }) => {
+      socket.to(conversationId).emit('typing:start', { userId, username: socket.user.username, conversationId });
+    });
+
+    socket.on('typing:stop', ({ conversationId }) => {
+      socket.to(conversationId).emit('typing:stop', { userId, conversationId });
+    });
+
+    // --- Message delivered acknowledgement ---
+    socket.on('message:delivered', async ({ messageId }) => {
       try {
-        if (!isValidPayload(payload, ['username'])) {
-          return;
+        await messageService.markDelivered(messageId, userId);
+        // Notify the sender
+        const msg = await require('../models/Message').findById(messageId).select('sender conversationId');
+        if (msg) {
+          io.to(msg.conversationId.toString()).emit('message:delivered', { messageId, userId });
         }
-
-        const { username, roomId = 'global' } = payload;
-        socket.data.username = username;
-        socket.data.roomId = roomId;
-        socket.join(roomId);
-
-        const result = userService.handleUserJoin(socket.id, username);
-
-        if (result.isFirstConnection) {
-          socket.broadcast.emit('user:online', { username, isOnline: true });
-        }
-
-        io.emit('users:update', {
-          onlineCount: result.onlineCount,
-          onlineUsernames: result.onlineUsernames,
-        });
-      } catch (error) {
-        console.error(`user:join error on ${socket.id}:`, error.message);
+      } catch (err) {
+        console.error('message:delivered error:', err.message);
       }
     });
 
-    socket.on('typing', (payload) => {
+    // --- Mark conversation as read ---
+    socket.on('message:read', async ({ conversationId }) => {
       try {
-        if (!isValidPayload(payload, ['username'])) {
-          return;
-        }
-        const { username, roomId = 'global' } = payload;
-        socket.broadcast.emit('userTyping', { username, roomId });
-      } catch (error) {
-        console.error(`typing error on ${socket.id}:`, error.message);
+        await messageService.markRead(conversationId, userId);
+        io.to(conversationId).emit('message:read', { conversationId, userId });
+      } catch (err) {
+        console.error('message:read error:', err.message);
       }
     });
 
-    socket.on('stopTyping', (payload) => {
-      try {
-        if (!isValidPayload(payload, ['username'])) {
-          return;
-        }
-        const { username, roomId = 'global' } = payload;
-        socket.broadcast.emit('userStoppedTyping', { username, roomId });
-      } catch (error) {
-        console.error(`stopTyping error on ${socket.id}:`, error.message);
-      }
+    // --- Join a new conversation room (after creating one) ---
+    socket.on('conversation:join', ({ conversationId }) => {
+      socket.join(conversationId);
     });
 
-    socket.on('message:read', async (payload) => {
-      try {
-        if (!isValidPayload(payload, ['messageIds', 'username'])) {
-          return;
-        }
-        const { messageIds, username } = payload;
-        if (!Array.isArray(messageIds)) {
-          return;
-        }
+    // --- Disconnect ---
+    socket.on('disconnect', async () => {
+      console.log(`Socket disconnected: ${socket.id} | User: ${socket.user.username}`);
 
-        const updatedMessages = await messageService.markAsRead(messageIds, username);
-
-        updatedMessages.forEach((message) => {
-          io.emit('message:statusUpdated', {
-            messageId: message._id,
-            status: 'read',
-          });
-        });
-      } catch (error) {
-        console.error(`message:read error on ${socket.id}:`, error.message);
+      const userSockets = onlineUsers.get(userId);
+      if (userSockets) {
+        userSockets.delete(socket.id);
+        if (userSockets.size === 0) {
+          onlineUsers.delete(userId);
+          await setUserOffline(userId);
+          await userService.updateLastSeen(userId);
+          socket.broadcast.emit('presence:update', { userId, isOnline: false });
+        }
       }
-    });
-
-    socket.on('disconnect', () => {
-      try {
-        console.log(`Client disconnected: ${socket.id}`);
-        const result = userService.handleUserDisconnect(socket.id);
-
-        if (result) {
-          if (result.isFullyOffline) {
-            io.emit('user:offline', { username: result.username, isOnline: false });
-          }
-          io.emit('users:update', {
-            onlineCount: result.onlineCount,
-            onlineUsernames: result.onlineUsernames,
-          });
-        }
-      } catch (error) {
-        console.error(`disconnect error on ${socket.id}:`, error.message);
-      }
-    });
-
-    socket.on('error', (error) => {
-      console.error(`Socket error on ${socket.id}:`, error.message);
     });
   });
 };
 
-module.exports = registerChatSocket;
+module.exports = { registerChatSocket, isUserOnline };

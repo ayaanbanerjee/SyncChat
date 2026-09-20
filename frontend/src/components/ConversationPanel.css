@@ -1,0 +1,101 @@
+.conv-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.conv-panel-empty {
+  align-items: center;
+  justify-content: center;
+}
+
+.conv-empty-state {
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.conv-empty-icon { font-size: 48px; display: block; margin-bottom: 12px; }
+
+.conv-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.conv-header-info { flex: 1; display: flex; flex-direction: column; }
+.conv-header-name { font-weight: 700; font-size: 15px; color: var(--text-primary); }
+.conv-header-status { font-size: 12px; color: var(--text-secondary); }
+.conv-header-status.online { color: #22c55e; }
+
+.conv-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.conv-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.conv-loading,
+.conv-no-messages,
+.conv-loading-more {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 12px;
+}
+
+.load-more-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin: 0 auto 8px;
+  display: block;
+  transition: background 0.15s;
+}
+
+.load-more-btn:hover { background: var(--bg-hover); }
+
+.typing-indicator {
+  padding: 6px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.reply-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-hover);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.reply-preview button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 16px;
+  padding: 0 4px;
+}

@@ -1,99 +1,44 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import MessageList from '../components/MessageList';
-import MessageInput from '../components/MessageInput';
-import TypingIndicator from '../components/TypingIndicator';
-import OnlineStatus from '../components/OnlineStatus';
-import useChatSocket from '../hooks/useChatSocket';
-import { sendMessage } from '../services/api';
-import socket from '../services/socket';
+import { useAuth } from '../context/AuthContext';
+import Sidebar from '../components/Sidebar';
+import ConversationPanel from '../components/ConversationPanel';
 import './Chat.css';
 
 const Chat = () => {
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [conversations, setConversations] = useState([]);
 
   useEffect(() => {
-    const storedUsername = localStorage.getItem('chatUsername');
-    if (!storedUsername) {
-      navigate('/');
-      return;
-    }
-    setUsername(storedUsername);
-  }, [navigate]);
+    if (!loading && !user) navigate('/');
+  }, [user, loading, navigate]);
 
-  const {
-    messages,
-    isConnected,
-    onlineCount,
-    onlineUsernames,
-    typingUsername,
-    errorMessage,
-    setErrorMessage,
-    loading,
-    sendTyping,
-    sendStopTyping,
-  } = useChatSocket(username);
+  const handleConversationSelect = useCallback((conv) => {
+    setActiveConversation(conv);
+  }, []);
 
-  const handleSend = useCallback(
-    async (text) => {
-      try {
-        setErrorMessage('');
-        const result = await sendMessage(username, text);
-        if (!result.success) {
-          setErrorMessage(result.message || 'Failed to send message.');
-        }
-      } catch (error) {
-        setErrorMessage('Failed to send message. Please try again.');
-      }
-    },
-    [username, setErrorMessage]
-  );
+  const handleConversationUpdate = useCallback((updated) => {
+    setConversations((prev) =>
+      prev.map((c) => (c._id === updated._id ? updated : c))
+    );
+    if (activeConversation?._id === updated._id) setActiveConversation(updated);
+  }, [activeConversation]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('chatUsername');
-    socket.disconnect();
-    navigate('/');
-  };
-
-  if (!username) {
-    return null;
-  }
+  if (loading || !user) return null;
 
   return (
-    <div className="chat-page">
-      <header className="chat-header">
-        <div>
-          <h2>SyncChat</h2>
-          <OnlineStatus isConnected={isConnected} onlineCount={onlineCount} />
-        </div>
-        <div className="chat-header-right">
-          <span className="chat-username">Hi, {username}</span>
-          <button className="logout-button" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
-      </header>
-
-      {errorMessage && <div className="chat-error">{errorMessage}</div>}
-
-      {loading ? (
-        <div className="chat-loading">Loading messages...</div>
-      ) : (
-        <MessageList
-          messages={messages}
-          currentUsername={username}
-          onlineUsernames={onlineUsernames}
-        />
-      )}
-
-      <TypingIndicator username={typingUsername} />
-
-      <MessageInput
-        onSend={handleSend}
-        onTyping={sendTyping}
-        onStopTyping={sendStopTyping}
-        disabled={!isConnected}
+    <div className="chat-layout">
+      <Sidebar
+        activeConversationId={activeConversation?._id}
+        onSelect={handleConversationSelect}
+        conversations={conversations}
+        setConversations={setConversations}
+      />
+      <ConversationPanel
+        conversation={activeConversation}
+        onConversationUpdate={handleConversationUpdate}
       />
     </div>
   );
