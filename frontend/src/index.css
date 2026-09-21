@@ -1,14 +1,14 @@
 /* CSS custom properties for theming */
 :root {
-  --accent: #6366f1;
-  --bg-primary: #0f0f10;
-  --bg-secondary: #1a1a1d;
-  --bg-hover: #2a2a2e;
-  --bg-active: #2d2d3a;
-  --bg-input: #242428;
-  --border: #2e2e33;
-  --text-primary: #f1f1f3;
-  --text-secondary: #8b8b99;
+  --accent: #7b61ee;
+  --bg-primary: #101021;
+  --bg-secondary: #191829;
+  --bg-hover: #25243a;
+  --bg-active: #302d52;
+  --bg-input: #232238;
+  --border: #302e45;
+  --text-primary: #f7f5ff;
+  --text-secondary: #a09bb3;
 }
 
 [data-theme='light'] {
@@ -25,7 +25,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.5;

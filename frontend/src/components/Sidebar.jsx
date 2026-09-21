@@ -9,6 +9,7 @@ import Avatar from './Avatar';
 import NewGroupModal from './NewGroupModal';
 import ProfileModal from './ProfileModal';
 import NotificationBell from './NotificationBell';
+import BrandLogo from './BrandLogo';
 import './Sidebar.css';
 
 const Sidebar = ({ activeConversationId, onSelect, conversations, setConversations }) => {
@@ -145,7 +146,7 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
         <button className="sidebar-avatar-btn" onClick={() => setShowProfile(true)}>
           <Avatar src={user.avatar} name={user.name} size={36} />
         </button>
-        <span className="sidebar-title">SyncChat</span>
+        <span className="sidebar-title"><BrandLogo compact /></span>
         <div className="sidebar-header-actions">
           <NotificationBell />
           <button className="icon-btn" title="New Group" onClick={() => setShowGroupModal(true)}>👥</button>

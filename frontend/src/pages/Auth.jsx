@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { loginUser, registerUser } from '../services/api';
 import toast from 'react-hot-toast';
+import BrandLogo from '../components/BrandLogo';
 import './Auth.css';
 
 const Auth = () => {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const location = useLocation();
+  const mode = location.pathname === '/signup' ? 'register' : 'login';
   const [form, setForm] = useState({ name: '', username: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -39,10 +41,7 @@ const Auth = () => {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-logo">
-          <span className="auth-logo-icon">💬</span>
-          <h1>SyncChat</h1>
-        </div>
+        <div className="auth-logo"><BrandLogo /></div>
         <p className="auth-subtitle">
           {mode === 'login' ? 'Welcome back! Sign in to continue.' : 'Create your account to get started.'}
         </p>
@@ -63,10 +62,11 @@ const Auth = () => {
 
         <p className="auth-switch">
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-          <button className="auth-switch-btn" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
+          <Link className="auth-switch-btn" to={mode === 'login' ? '/signup' : '/login'}>
             {mode === 'login' ? 'Register' : 'Sign In'}
-          </button>
+          </Link>
         </p>
+        <Link className="auth-back" to="/">← Back to home</Link>
       </div>
     </div>
   );

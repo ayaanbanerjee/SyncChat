@@ -15,6 +15,7 @@
   gap: 10px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(123, 97, 238, 0.13), transparent);
 }
 
 .sidebar-avatar-btn {
@@ -31,6 +32,8 @@
   color: var(--text-primary);
   flex: 1;
 }
+
+.sidebar-title .brand-logo { font-size: 15px; }
 
 .sidebar-header-actions {
   display: flex;

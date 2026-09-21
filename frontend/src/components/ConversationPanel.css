@@ -4,7 +4,7 @@
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: radial-gradient(circle at 80% 10%, rgba(123, 97, 238, 0.07), transparent 27%), var(--bg-primary);
 }
 
 .conv-panel-empty {
