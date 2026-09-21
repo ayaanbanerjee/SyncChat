@@ -9,10 +9,10 @@ const { registerChatSocket } = require('./sockets/chatSocket');
 
 const PORT = process.env.PORT || 5000;
 
-// Support multiple origins: local dev + deployed Vercel URL
+// Support multiple origins: local dev + all deployed Vercel URLs
 const allowedOrigins = [
   'http://localhost:5173',
-  process.env.CLIENT_URL,
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map((u) => u.trim()) : []),
 ].filter(Boolean);
 
 const startServer = async () => {

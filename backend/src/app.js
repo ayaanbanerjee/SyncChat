@@ -19,16 +19,18 @@ app.set('trust proxy', 1);
 // Security headers
 app.use(helmet());
 
-// CORS — supports multiple allowed origins (local dev + Vercel production)
+// CORS — build allowed origins list from env
+// CLIENT_URL can be a comma-separated list of URLs for multiple Vercel deployments
+// e.g. CLIENT_URL=https://sync-chat-one.vercel.app,https://syncchat.vercel.app
 const allowedOrigins = [
   'http://localhost:5173',
-  process.env.CLIENT_URL,
-].filter(Boolean); // remove undefined if CLIENT_URL is not set
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map((u) => u.trim()) : []),
+].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman)
+      // Allow requests with no origin (curl, Postman, mobile apps)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       return callback(new Error(`CORS blocked: ${origin}`));
