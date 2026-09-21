@@ -27,8 +27,10 @@ const register = async ({ name, username, email, password }) => {
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-  const user = await User.create({ name, username: username.toLowerCase(), email: email.toLowerCase(), passwordHash });
+  const created = await User.create({ name, username: username.toLowerCase(), email: email.toLowerCase(), passwordHash });
 
+  // Fetch without passwordHash so it is never sent to the client
+  const user = await User.findById(created._id).select('-passwordHash');
   const token = generateToken(user._id);
   return { user, token };
 };

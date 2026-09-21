@@ -198,16 +198,18 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
     );
   }
 
+  const myId = user._id?.toString();
+
   const convName = conversation.type === 'group'
     ? conversation.name
-    : conversation.members?.find((m) => m._id !== user._id)?.name || 'Chat';
+    : conversation.members?.find((m) => m._id?.toString() !== myId)?.name || 'Chat';
 
   const convAvatar = conversation.type === 'group'
     ? conversation.groupImage
-    : conversation.members?.find((m) => m._id !== user._id)?.avatar;
+    : conversation.members?.find((m) => m._id?.toString() !== myId)?.avatar;
 
   const otherMember = conversation.type === 'direct'
-    ? conversation.members?.find((m) => m._id !== user._id)
+    ? conversation.members?.find((m) => m._id?.toString() !== myId)
     : null;
 
   const isOtherOnline = otherMember ? onlineUsers.has(otherMember._id) : false;
@@ -252,7 +254,7 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
             <MessageItem
               key={msg._id}
               message={msg}
-              isOwn={msg.sender?._id === user._id || msg.sender === user._id}
+              isOwn={msg.sender?._id?.toString() === myId || msg.sender?.toString() === myId}
               onReply={() => setReplyTo(msg)}
               onEdit={handleEdit}
               onDelete={handleDelete}

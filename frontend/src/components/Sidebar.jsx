@@ -112,21 +112,23 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
     setShowGroupModal(false);
   };
 
+  const myId = user._id?.toString();
+
   const getConvName = (conv) => {
     if (conv.type === 'group') return conv.name;
-    const other = conv.members?.find((m) => m._id !== user._id);
+    const other = conv.members?.find((m) => m._id?.toString() !== myId);
     return other?.name || 'Unknown';
   };
 
   const getConvAvatar = (conv) => {
     if (conv.type === 'group') return conv.groupImage || '';
-    const other = conv.members?.find((m) => m._id !== user._id);
+    const other = conv.members?.find((m) => m._id?.toString() !== myId);
     return other?.avatar || '';
   };
 
   const getOtherMember = (conv) => {
     if (conv.type !== 'direct') return null;
-    return conv.members?.find((m) => m._id !== user._id);
+    return conv.members?.find((m) => m._id?.toString() !== myId);
   };
 
   const getLastMessagePreview = (conv) => {
