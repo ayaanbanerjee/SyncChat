@@ -28,8 +28,7 @@ const Auth = () => {
         }
         res = await registerUser(form);
       }
-      login(res.data.token, res.data.user);
-      navigate('/chat');
+      login(res.data.token, res.data.user).then(() => navigate('/chat'));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Something went wrong.');
     } finally {

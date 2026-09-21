@@ -16,8 +16,9 @@ const upload = multer({
 });
 
 router.get('/search', protect, searchUsers);
-router.get('/:username', protect, getUserProfile);
+// /me routes MUST come before /:username — otherwise Express matches 'me' as a username
 router.put('/me/profile', protect, updateProfile);
 router.post('/me/avatar', protect, upload.single('avatar'), uploadAvatar);
+router.get('/:username', protect, getUserProfile);
 
 module.exports = router;
