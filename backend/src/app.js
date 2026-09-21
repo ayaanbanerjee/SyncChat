@@ -12,13 +12,27 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
+// Required for Render/Heroku — they sit behind a reverse proxy.
+// Without this, express-rate-limit sees the proxy IP instead of the real client IP.
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet());
 
-// CORS — only allow the configured client origin
+// CORS — supports multiple allowed origins (local dev + Vercel production)
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.CLIENT_URL,
+].filter(Boolean); // remove undefined if CLIENT_URL is not set
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error(`CORS blocked: ${origin}`));
+    },
     credentials: true,
   })
 );

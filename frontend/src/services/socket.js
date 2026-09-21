@@ -6,6 +6,9 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 const socket = io(SOCKET_URL, {
   autoConnect: false,
   auth: { token: '' },
+  // Start with polling so it works on Render free tier,
+  // then upgrades to WebSocket automatically if available
+  transports: ['polling', 'websocket'],
 });
 
 export const connectSocket = (token) => {

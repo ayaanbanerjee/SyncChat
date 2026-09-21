@@ -8,7 +8,12 @@ const { connectRedis } = require('./config/redis');
 const { registerChatSocket } = require('./sockets/chatSocket');
 
 const PORT = process.env.PORT || 5000;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+
+// Support multiple origins: local dev + deployed Vercel URL
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.CLIENT_URL,
+].filter(Boolean);
 
 const startServer = async () => {
   await connectDatabase();
@@ -17,8 +22,10 @@ const startServer = async () => {
   const server = http.createServer(app);
 
   const io = new Server(server, {
-    cors: { origin: CLIENT_URL, methods: ['GET', 'POST'], credentials: true },
+    cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
     pingTimeout: 60000,
+    // Render free tier requires polling fallback before upgrading to WebSocket
+    transports: ['polling', 'websocket'],
   });
 
   app.set('io', io);
