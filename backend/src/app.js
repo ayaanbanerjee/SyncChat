@@ -60,17 +60,9 @@ const authLimiter = rateLimit({
   message: { success: false, message: 'Too many auth attempts. Please try again later.' },
 });
 
-// Relaxed limiter for guest/demo endpoint
-const guestLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 60,
-  message: { success: false, message: 'Too many requests. Please try again later.' },
-});
-
 app.use(globalLimiter);
 
 // Routes
-app.use('/api/auth/guest', guestLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/conversations', conversationRoutes);
