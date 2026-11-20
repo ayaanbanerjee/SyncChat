@@ -34,6 +34,21 @@ const Chat = () => {
     setActiveConversation(null);
   }, []);
 
+  const handleRequestHandled = useCallback((action, conv) => {
+    if (action === 'accepted') {
+      // Update the conversation in the list to active
+      setConversations((prev) =>
+        prev.map((c) => c._id === conv._id ? conv : c)
+      );
+      setActiveConversation(conv);
+    } else {
+      // Declined — remove from list and go back
+      setConversations((prev) => prev.filter((c) => c._id !== conv._id));
+      setActiveConversation(null);
+      setShowSidebar(true);
+    }
+  }, []);
+
   if (loading || !user) return null;
 
   return (
@@ -52,6 +67,7 @@ const Chat = () => {
           conversation={activeConversation}
           onConversationUpdate={handleConversationUpdate}
           onMobileBack={handleMobileBack}
+          onRequestHandled={handleRequestHandled}
         />
       </div>
     </div>

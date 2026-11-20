@@ -156,24 +156,122 @@
 .search-result-name { font-weight: 600; font-size: 14px; }
 .search-result-username { font-size: 12px; color: var(--text-secondary); }
 
-.requests-btn { position: relative; }
+/* ── Message Requests Section ── */
+.requests-section {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
 
-.requests-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  background: #ef4444;
+.requests-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.requests-section-header:hover { background: var(--bg-hover); }
+
+.requests-count {
+  background: var(--accent);
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
+.requests-chevron {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.requests-list {
+  background: var(--bg-hover);
+}
+
+.request-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.request-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.request-item-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.request-item-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.request-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.req-accept-btn, .req-decline-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 3px;
-  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.req-accept-btn { background: #22c55e; color: #fff; }
+.req-decline-btn { background: #ef4444; color: #fff; }
+.req-accept-btn:hover, .req-decline-btn:hover { opacity: 0.8; }
+
+.conv-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.conv-pending-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(123,97,238,0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .sidebar-guest-banner {

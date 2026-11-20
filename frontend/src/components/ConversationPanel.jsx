@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   getMessages, sendMessage, sendFile, editMessage,
   deleteMessage, blockUser, unblockUser, getBlockedUsers,
+  acceptRequest, declineRequest,
 } from '../services/api';
 import socket from '../services/socket';
 import toast from 'react-hot-toast';
@@ -27,7 +28,7 @@ const formatLastSeen = (date) => {
   return `Last seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 };
 
-const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack }) => {
+const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack, onRequestHandled }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [hasMore, setHasMore] = useState(false);
@@ -313,7 +314,28 @@ const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack })
         {/* Pending request banner (recipient view) */}
         {isPending && !isInitiator && (
           <div className="conv-pending-banner">
-            <span>This is a message request. Accept to reply.</span>
+            <span><strong>{otherMember?.name}</strong> wants to message you</span>
+            <div className="conv-pending-actions">
+              <button className="conv-accept-btn" onClick={async () => {
+                try {
+                  const res = await acceptRequest(conversation._id);
+                  toast.success('Request accepted.');
+                  if (onRequestHandled) onRequestHandled('accepted', res.data.conversation);
+                  if (onConversationUpdate) onConversationUpdate(res.data.conversation);
+                } catch (err) {
+                  toast.error(err.response?.data?.message || 'Failed to accept.');
+                }
+              }}>Accept</button>
+              <button className="conv-decline-btn" onClick={async () => {
+                try {
+                  await declineRequest(conversation._id);
+                  toast.success('Request declined.');
+                  if (onRequestHandled) onRequestHandled('declined', conversation);
+                } catch (err) {
+                  toast.error(err.response?.data?.message || 'Failed to decline.');
+                }
+              }}>Decline</button>
+            </div>
           </div>
         )}
 

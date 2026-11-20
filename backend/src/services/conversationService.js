@@ -86,8 +86,16 @@ const createGroup = async (userId, { name, memberIds, groupImage }) => {
 };
 
 // Get all conversations for a user, sorted by most recent message
+// Only returns active conversations + pending ones the user initiated
 const getUserConversations = async (userId) => {
-  return Conversation.find({ members: userId, status: { $ne: 'declined' } })
+  return Conversation.find({
+    members: userId,
+    $or: [
+      { status: 'active' },
+      { status: { $exists: false } },   // legacy docs with no status field
+      { status: 'pending', initiatedBy: userId }, // sender sees their own pending
+    ],
+  })
     .sort({ lastMessageAt: -1, updatedAt: -1 })
     .populate('members', 'name username avatar lastSeen isOnline')
     .populate({
