@@ -86,3 +86,40 @@
 
 .auth-back { display: block; width: fit-content; margin: 22px auto 0; color: var(--text-secondary); font-size: 13px; text-decoration: none; }
 .auth-back:hover { color: var(--text-primary); }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.auth-divider::before, .auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-guest-btn {
+  width: 100%;
+  padding: 11px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.auth-guest-btn:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--accent); }
+.auth-guest-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.auth-guest-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}

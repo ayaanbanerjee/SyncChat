@@ -4,14 +4,18 @@ const streamifier = require('streamifier');
 
 const searchUsers = async (query, currentUserId) => {
   if (!query || query.trim().length < 1) return [];
+  const currentUser = await User.findById(currentUserId).select('blockedUsers');
+  const blockedIds = currentUser?.blockedUsers?.map(String) || [];
+
   return User.find({
-    _id: { $ne: currentUserId },
+    _id: { $ne: currentUserId, $nin: blockedIds },
+    isGuest: { $ne: true },
     $or: [
       { username: { $regex: query.trim(), $options: 'i' } },
       { name: { $regex: query.trim(), $options: 'i' } },
     ],
   })
-    .select('name username avatar lastSeen')
+    .select('name username avatar lastSeen isOnline')
     .limit(20);
 };
 
@@ -36,10 +40,20 @@ const updateProfile = async (userId, { name, bio }) => {
 const uploadAvatar = (userId, fileBuffer) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
-      { folder: 'syncchat/avatars', public_id: `avatar_${userId}`, overwrite: true, transformation: [{ width: 200, height: 200, crop: 'fill' }] },
+      {
+        folder: 'syncchat/avatars',
+        public_id: `avatar_${userId}`,
+        overwrite: true,
+        resource_type: 'image',
+        transformation: [{ width: 200, height: 200, crop: 'fill' }],
+      },
       async (error, result) => {
         if (error) return reject(error);
-        const user = await User.findByIdAndUpdate(userId, { avatar: result.secure_url }, { new: true }).select('-passwordHash');
+        const user = await User.findByIdAndUpdate(
+          userId,
+          { avatar: result.secure_url },
+          { new: true }
+        ).select('-passwordHash');
         resolve(user);
       }
     );
@@ -48,7 +62,7 @@ const uploadAvatar = (userId, fileBuffer) => {
 };
 
 const updateLastSeen = async (userId) => {
-  await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
+  await User.findByIdAndUpdate(userId, { lastSeen: new Date(), isOnline: false });
 };
 
 module.exports = { searchUsers, getUserProfile, updateProfile, uploadAvatar, updateLastSeen };

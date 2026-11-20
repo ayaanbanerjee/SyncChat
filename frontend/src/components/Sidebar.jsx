@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
-  getConversations, startDirect, createGroup, searchUsers,
+  getConversations, startDirect, searchUsers, getMessageRequests,
 } from '../services/api';
 import socket from '../services/socket';
 import toast from 'react-hot-toast';
@@ -9,17 +9,21 @@ import Avatar from './Avatar';
 import NewGroupModal from './NewGroupModal';
 import ProfileModal from './ProfileModal';
 import NotificationBell from './NotificationBell';
+import MessageRequests from './MessageRequests';
 import BrandLogo from './BrandLogo';
 import './Sidebar.css';
 
-const Sidebar = ({ activeConversationId, onSelect, conversations, setConversations }) => {
+const Sidebar = ({ activeConversationId, onSelect, conversations, setConversations, onMobileClose }) => {
   const { user, logout } = useAuth();
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showRequests, setShowRequests] = useState(false);
+  const [requestCount, setRequestCount] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [lastSeenMap, setLastSeenMap] = useState({});
   const searchTimeout = useRef(null);
 
   // Load conversations on mount
@@ -29,7 +33,14 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
       .catch(() => toast.error('Failed to load conversations.'));
   }, [setConversations]);
 
-  // Socket: new message updates sidebar last message + reorders
+  // Load pending request count
+  useEffect(() => {
+    getMessageRequests()
+      .then((res) => setRequestCount(res.data.requests.length))
+      .catch(() => {});
+  }, []);
+
+  // Socket listeners
   useEffect(() => {
     const handleNewMessage = (message) => {
       setConversations((prev) => {
@@ -44,16 +55,25 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
       });
     };
 
-    const handlePresence = ({ userId, isOnline }) => {
+    const handlePresence = ({ userId, isOnline, lastSeen }) => {
       setOnlineUsers((prev) => {
         const next = new Set(prev);
         if (isOnline) next.add(userId);
         else next.delete(userId);
         return next;
       });
+      if (!isOnline && lastSeen) {
+        setLastSeenMap((prev) => ({ ...prev, [userId]: lastSeen }));
+      }
     };
 
     const handleConversationCreated = (conv) => {
+      const initiatedById = conv.initiatedBy?._id?.toString() || conv.initiatedBy?.toString();
+      // If it's a pending request directed at me, increment badge only
+      if (conv.status === 'pending' && initiatedById !== myId) {
+        setRequestCount((c) => c + 1);
+        return; // Don't add to main list
+      }
       setConversations((prev) => {
         if (prev.find((c) => c._id === conv._id)) return prev;
         return [conv, ...prev];
@@ -69,7 +89,7 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
       socket.off('presence:update', handlePresence);
       socket.off('conversation:created', handleConversationCreated);
     };
-  }, [setConversations]);
+  }, [setConversations, user._id]);
 
   // Debounced user search
   useEffect(() => {
@@ -95,12 +115,14 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
       const conv = res.data.conversation;
       setConversations((prev) => {
         if (prev.find((c) => c._id === conv._id)) return prev;
+        // Only add to sidebar if active (not pending for the other side)
         return [conv, ...prev];
       });
       socket.emit('conversation:join', { conversationId: conv._id });
       onSelect(conv);
       setSearch('');
       setSearchResults([]);
+      if (onMobileClose) onMobileClose();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to start conversation.');
     }
@@ -111,6 +133,24 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
     socket.emit('conversation:join', { conversationId: conv._id });
     onSelect(conv);
     setShowGroupModal(false);
+    if (onMobileClose) onMobileClose();
+  };
+
+  const handleRequestAccepted = (conv) => {
+    setRequestCount((c) => Math.max(0, c - 1));
+    setConversations((prev) => {
+      if (prev.find((c) => c._id === conv._id)) return prev;
+      return [conv, ...prev];
+    });
+    socket.emit('conversation:join', { conversationId: conv._id });
+    onSelect(conv);
+    setShowRequests(false);
+    if (onMobileClose) onMobileClose();
+  };
+
+  const handleConvSelect = (conv) => {
+    onSelect(conv);
+    if (onMobileClose) onMobileClose();
   };
 
   const myId = user._id?.toString();
@@ -140,6 +180,17 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
     return conv.lastMessage.text || '';
   };
 
+  // Only show active conversations in main list
+  // pending conversations initiated BY me show in my sidebar; pending ones FROM others go to requests
+  const activeConversations = conversations.filter((c) => {
+    if (c.status === 'declined') return false;
+    if (c.status === 'pending') {
+      const initiatedById = c.initiatedBy?._id?.toString() || c.initiatedBy?.toString();
+      return initiatedById === myId;
+    }
+    return true;
+  });
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -149,10 +200,24 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
         <span className="sidebar-title"><BrandLogo compact /></span>
         <div className="sidebar-header-actions">
           <NotificationBell />
+          <button
+            className="icon-btn requests-btn"
+            title="Message Requests"
+            onClick={() => setShowRequests(true)}
+          >
+            💬
+            {requestCount > 0 && <span className="requests-badge">{requestCount}</span>}
+          </button>
           <button className="icon-btn" title="New Group" onClick={() => setShowGroupModal(true)}>👥</button>
           <button className="icon-btn" title="Logout" onClick={logout}>⏻</button>
         </div>
       </div>
+
+      {user.isGuest && (
+        <div className="sidebar-guest-banner">
+          👀 Demo mode — <a href="/signup">Register</a> for full access
+        </div>
+      )}
 
       <div className="sidebar-search">
         <input
@@ -180,17 +245,19 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
         </div>
       ) : (
         <div className="sidebar-conversations">
-          {conversations.length === 0 && (
+          {activeConversations.length === 0 && (
             <div className="sidebar-hint">Search for a user to start chatting.</div>
           )}
-          {conversations.map((conv) => {
+          {activeConversations.map((conv) => {
             const other = getOtherMember(conv);
-            const isOnline = other ? onlineUsers.has(other._id) : false;
+            const otherId = other?._id?.toString();
+            const isOnline = otherId ? (other?.isOnline || onlineUsers.has(otherId)) : false;
+            const lastSeen = otherId ? (lastSeenMap[otherId] || other?.lastSeen) : null;
             return (
               <button
                 key={conv._id}
                 className={`conv-item ${activeConversationId === conv._id ? 'active' : ''}`}
-                onClick={() => onSelect(conv)}
+                onClick={() => handleConvSelect(conv)}
               >
                 <div className="conv-avatar-wrap">
                   <Avatar src={getConvAvatar(conv)} name={getConvName(conv)} size={42} />
@@ -218,6 +285,12 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
       )}
       {showProfile && (
         <ProfileModal onClose={() => setShowProfile(false)} />
+      )}
+      {showRequests && (
+        <MessageRequests
+          onAccepted={handleRequestAccepted}
+          onClose={() => setShowRequests(false)}
+        />
       )}
     </aside>
   );

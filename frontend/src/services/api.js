@@ -27,6 +27,7 @@ api.interceptors.response.use(
 // Auth
 export const registerUser = (data) => api.post('/auth/register', data);
 export const loginUser = (data) => api.post('/auth/login', data);
+export const guestLogin = () => api.post('/auth/guest');
 export const getMe = () => api.get('/auth/me');
 export const changePassword = (data) => api.put('/auth/change-password', data);
 
@@ -34,7 +35,13 @@ export const changePassword = (data) => api.put('/auth/change-password', data);
 export const searchUsers = (q) => api.get(`/users/search?q=${encodeURIComponent(q)}`);
 export const getUserProfile = (username) => api.get(`/users/${username}`);
 export const updateProfile = (data) => api.put('/users/me/profile', data);
-export const uploadAvatar = (formData) => api.post('/users/me/avatar', formData);
+export const uploadAvatar = (formData) =>
+  api.post('/users/me/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+
+// Block
+export const blockUser = (userId) => api.post(`/block/${userId}`);
+export const unblockUser = (userId) => api.delete(`/block/${userId}`);
+export const getBlockedUsers = () => api.get('/block');
 
 // Conversations
 export const getConversations = () => api.get('/conversations');
@@ -47,12 +54,16 @@ export const addMembers = (id, memberIds) => api.post(`/conversations/${id}/memb
 export const removeMember = (id, userId) => api.delete(`/conversations/${id}/members/${userId}`);
 export const assignAdmin = (id, userId) => api.post(`/conversations/${id}/admins/${userId}`);
 export const removeAdmin = (id, userId) => api.delete(`/conversations/${id}/admins/${userId}`);
+export const getMessageRequests = () => api.get('/conversations/requests');
+export const acceptRequest = (id) => api.post(`/conversations/${id}/accept`);
+export const declineRequest = (id) => api.post(`/conversations/${id}/decline`);
 
 // Messages
 export const getMessages = (conversationId, cursor) =>
   api.get(`/messages/${conversationId}${cursor ? `?cursor=${cursor}` : ''}`);
 export const sendMessage = (conversationId, data) => api.post(`/messages/${conversationId}`, data);
-export const sendFile = (conversationId, formData) => api.post(`/messages/${conversationId}/file`, formData);
+export const sendFile = (conversationId, formData) =>
+  api.post(`/messages/${conversationId}/file`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 export const editMessage = (messageId, text) => api.put(`/messages/${messageId}`, { text });
 export const deleteMessage = (messageId) => api.delete(`/messages/${messageId}`);
 export const searchMessages = (q) => api.get(`/messages/search?q=${encodeURIComponent(q)}`);

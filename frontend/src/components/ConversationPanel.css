@@ -99,3 +99,65 @@
   font-size: 16px;
   padding: 0 4px;
 }
+
+.conv-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.mobile-back-btn {
+  font-size: 20px;
+  margin-right: 4px;
+}
+
+.conv-pending-banner {
+  padding: 10px 16px;
+  background: rgba(234,179,8,0.12);
+  border-bottom: 1px solid rgba(234,179,8,0.3);
+  font-size: 13px;
+  color: #ca8a04;
+  text-align: center;
+}
+
+.conv-blocked-banner {
+  padding: 10px 16px;
+  background: rgba(239,68,68,0.1);
+  border-bottom: 1px solid rgba(239,68,68,0.25);
+  font-size: 13px;
+  color: #ef4444;
+  text-align: center;
+}
+
+.conv-blocked-banner button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  margin-left: 6px;
+}
+
+.conv-guest-input {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.conv-guest-input a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .conv-panel { height: 100dvh; }
+  .conv-header { padding: 10px 12px; }
+  .conv-messages { padding: 10px; }
+  .conv-header-name { font-size: 14px; }
+}

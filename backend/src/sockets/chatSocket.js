@@ -1,8 +1,8 @@
 const { verifySocketToken } = require('../middleware/authMiddleware');
 const messageService = require('../services/messageService');
 const userService = require('../services/userService');
-const notificationService = require('../services/notificationService');
 const Conversation = require('../models/Conversation');
+const User = require('../models/User');
 const { getRedis } = require('../config/redis');
 
 // In-memory presence fallback when Redis is not available
@@ -15,6 +15,8 @@ const setUserOnline = async (userId) => {
   } else {
     if (!onlineUsers.has(userId.toString())) onlineUsers.set(userId.toString(), new Set());
   }
+  // Persist isOnline=true in DB
+  await User.findByIdAndUpdate(userId, { isOnline: true });
 };
 
 const setUserOffline = async (userId) => {
@@ -24,6 +26,8 @@ const setUserOffline = async (userId) => {
   } else {
     onlineUsers.delete(userId.toString());
   }
+  // Persist isOnline=false and accurate lastSeen in DB
+  await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
 };
 
 const isUserOnline = async (userId) => {
@@ -56,12 +60,15 @@ const registerChatSocket = (io) => {
 
     await setUserOnline(userId);
 
+    // Join personal room (userId) for direct notifications
+    socket.join(userId);
+
     // Join all conversation rooms this user belongs to
     const conversations = await Conversation.find({ members: userId }).select('_id');
     conversations.forEach((c) => socket.join(c._id.toString()));
 
     // Notify others that this user is online
-    socket.broadcast.emit('presence:update', { userId, isOnline: true });
+    socket.broadcast.emit('presence:update', { userId, isOnline: true, lastSeen: null });
 
     // --- Typing ---
     socket.on('typing:start', ({ conversationId }) => {
@@ -76,7 +83,6 @@ const registerChatSocket = (io) => {
     socket.on('message:delivered', async ({ messageId }) => {
       try {
         await messageService.markDelivered(messageId, userId);
-        // Notify the sender
         const msg = await require('../models/Message').findById(messageId).select('sender conversationId');
         if (msg) {
           io.to(msg.conversationId.toString()).emit('message:delivered', { messageId, userId });
@@ -111,8 +117,8 @@ const registerChatSocket = (io) => {
         if (userSockets.size === 0) {
           onlineUsers.delete(userId);
           await setUserOffline(userId);
-          await userService.updateLastSeen(userId);
-          socket.broadcast.emit('presence:update', { userId, isOnline: false });
+          const lastSeen = new Date();
+          socket.broadcast.emit('presence:update', { userId, isOnline: false, lastSeen });
         }
       }
     });

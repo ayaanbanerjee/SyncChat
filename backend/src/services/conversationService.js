@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Message = require('../models/Message');
+const { isBlocked } = require('./blockService');
 
 // Get or create a direct conversation between two users
 const getOrCreateDirect = async (userId, targetUserId) => {
@@ -17,18 +18,45 @@ const getOrCreateDirect = async (userId, targetUserId) => {
     throw error;
   }
 
+  // Check if target has blocked the requester
+  const blocked = await isBlocked(targetUserId, userId);
+  if (blocked) {
+    const error = new Error('You cannot message this user.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Check if requester has blocked the target
+  const blockedByMe = await isBlocked(userId, targetUserId);
+  if (blockedByMe) {
+    const error = new Error('Unblock this user to start a conversation.');
+    error.statusCode = 403;
+    throw error;
+  }
+
   // Check if a direct conversation already exists between these two users
   let conversation = await Conversation.findOne({
     type: 'direct',
     members: { $all: [userId, targetUserId], $size: 2 },
-  }).populate('members', 'name username avatar lastSeen');
+  }).populate('members', 'name username avatar lastSeen isOnline');
 
   if (!conversation) {
+    // Brand new conversation — starts as pending (message request)
     conversation = await Conversation.create({
       type: 'direct',
       members: [userId, targetUserId],
+      status: 'pending',
+      initiatedBy: userId,
     });
-    conversation = await conversation.populate('members', 'name username avatar lastSeen');
+    conversation = await conversation.populate('members', 'name username avatar lastSeen isOnline');
+  } else if (!conversation.status || conversation.status === 'declined') {
+    // Existing conversation with no status (created before this feature) — mark active
+    // Or previously declined — allow re-initiation as a new pending request
+    conversation.status = conversation.status === 'declined' ? 'pending' : 'active';
+    if (conversation.status === 'pending') conversation.initiatedBy = userId;
+    await conversation.save();
+    conversation = await Conversation.findById(conversation._id)
+      .populate('members', 'name username avatar lastSeen isOnline');
   }
 
   return conversation;
@@ -59,9 +87,9 @@ const createGroup = async (userId, { name, memberIds, groupImage }) => {
 
 // Get all conversations for a user, sorted by most recent message
 const getUserConversations = async (userId) => {
-  return Conversation.find({ members: userId })
+  return Conversation.find({ members: userId, status: { $ne: 'declined' } })
     .sort({ lastMessageAt: -1, updatedAt: -1 })
-    .populate('members', 'name username avatar lastSeen')
+    .populate('members', 'name username avatar lastSeen isOnline')
     .populate({
       path: 'lastMessage',
       select: 'text type sender createdAt isDeleted',
@@ -71,7 +99,7 @@ const getUserConversations = async (userId) => {
 
 const getConversationById = async (conversationId, userId) => {
   const conversation = await Conversation.findOne({ _id: conversationId, members: userId })
-    .populate('members', 'name username avatar lastSeen')
+    .populate('members', 'name username avatar lastSeen isOnline')
     .populate('admins', 'name username avatar');
 
   if (!conversation) {
@@ -80,6 +108,47 @@ const getConversationById = async (conversationId, userId) => {
     throw error;
   }
   return conversation;
+};
+
+// Accept a message request
+const acceptRequest = async (conversationId, userId) => {
+  const conversation = await Conversation.findOne({ _id: conversationId, members: userId, status: 'pending' });
+  if (!conversation) {
+    const error = new Error('Request not found.'); error.statusCode = 404; throw error;
+  }
+  // Only the recipient (not initiator) can accept
+  if (conversation.initiatedBy?.toString() === userId.toString()) {
+    const error = new Error('Not authorized.'); error.statusCode = 403; throw error;
+  }
+  conversation.status = 'active';
+  await conversation.save();
+  return conversation.populate('members', 'name username avatar lastSeen isOnline');
+};
+
+// Decline a message request
+const declineRequest = async (conversationId, userId) => {
+  const conversation = await Conversation.findOne({ _id: conversationId, members: userId, status: 'pending' });
+  if (!conversation) {
+    const error = new Error('Request not found.'); error.statusCode = 404; throw error;
+  }
+  if (conversation.initiatedBy?.toString() === userId.toString()) {
+    const error = new Error('Not authorized.'); error.statusCode = 403; throw error;
+  }
+  conversation.status = 'declined';
+  await conversation.save();
+  return conversation;
+};
+
+// Get pending message requests for a user
+const getMessageRequests = async (userId) => {
+  return Conversation.find({ members: userId, status: 'pending', initiatedBy: { $ne: userId } })
+    .sort({ createdAt: -1 })
+    .populate('members', 'name username avatar lastSeen isOnline')
+    .populate({
+      path: 'lastMessage',
+      select: 'text type sender createdAt',
+      populate: { path: 'sender', select: 'name username' },
+    });
 };
 
 // Group management
@@ -172,6 +241,9 @@ module.exports = {
   createGroup,
   getUserConversations,
   getConversationById,
+  acceptRequest,
+  declineRequest,
+  getMessageRequests,
   addMembers,
   removeMember,
   assignAdmin,

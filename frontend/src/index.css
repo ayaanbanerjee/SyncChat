@@ -40,3 +40,13 @@ body {
 a { color: inherit; }
 button { font-family: inherit; }
 input, textarea { font-family: inherit; }
+
+/* Prevent horizontal overflow globally */
+html, body { overflow-x: hidden; max-width: 100vw; }
+
+/* Mobile: prevent input zoom on iOS */
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}

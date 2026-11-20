@@ -8,6 +8,7 @@ const userRoutes = require('./routes/userRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const blockRoutes = require('./routes/blockRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -59,14 +60,23 @@ const authLimiter = rateLimit({
   message: { success: false, message: 'Too many auth attempts. Please try again later.' },
 });
 
+// Relaxed limiter for guest/demo endpoint
+const guestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+});
+
 app.use(globalLimiter);
 
 // Routes
+app.use('/api/auth/guest', guestLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/block', blockRoutes);
 
 app.get('/api/health', (req, res) => res.status(200).json({ success: true, message: 'Server is running.' }));
 

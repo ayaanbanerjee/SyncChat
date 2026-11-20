@@ -48,3 +48,11 @@
 
 .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .send-btn:hover:not(:disabled) { opacity: 0.9; }
+
+@media (max-width: 768px) {
+  .message-input {
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+  .send-btn { padding: 10px 14px; }
+}

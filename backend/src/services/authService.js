@@ -44,6 +44,12 @@ const login = async ({ email, password }) => {
     throw error;
   }
 
+  if (user.isGuest) {
+    const error = new Error('Invalid email or password.');
+    error.statusCode = 401;
+    throw error;
+  }
+
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
     const error = new Error('Invalid email or password.');
@@ -51,12 +57,47 @@ const login = async ({ email, password }) => {
     throw error;
   }
 
+  // Update isOnline on login
+  await User.findByIdAndUpdate(user._id, { isOnline: true });
+
   const token = generateToken(user._id);
 
   // Return user without passwordHash
   const userObj = user.toObject();
   delete userObj.passwordHash;
+  userObj.isOnline = true;
 
+  return { user: userObj, token };
+};
+
+const guestLogin = async () => {
+  // Find by username first (handles both old docs without isGuest field and new ones)
+  let guest = await User.findOne({ username: 'demo_guest' });
+  if (!guest) {
+    try {
+      const passwordHash = await bcrypt.hash('guest_demo_2024_!', SALT_ROUNDS);
+      guest = await User.create({
+        name: 'Demo Guest',
+        username: 'demo_guest',
+        email: 'demo_guest@syncchat.demo',
+        passwordHash,
+        isGuest: true,
+        bio: 'Exploring SyncChat as a guest.',
+      });
+    } catch (createErr) {
+      // Race condition: another request created it first — just fetch it
+      if (createErr.code === 11000) {
+        guest = await User.findOne({ username: 'demo_guest' });
+      } else {
+        throw createErr;
+      }
+    }
+  } else if (!guest.isGuest) {
+    // Patch existing doc that was created before isGuest field existed
+    await User.findByIdAndUpdate(guest._id, { isGuest: true });
+  }
+  const token = generateToken(guest._id);
+  const userObj = await User.findById(guest._id).select('-passwordHash');
   return { user: userObj, token };
 };
 
@@ -75,4 +116,4 @@ const changePassword = async (userId, { currentPassword, newPassword }) => {
   await user.save();
 };
 
-module.exports = { register, login, changePassword, generateToken };
+module.exports = { register, login, guestLogin, changePassword, generateToken };

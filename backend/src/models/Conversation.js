@@ -43,6 +43,18 @@ const conversationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // For direct conversations: 'active' | 'pending' | 'declined'
+    status: {
+      type: String,
+      enum: ['active', 'pending', 'declined'],
+      default: 'active',
+    },
+    // The user who initiated the conversation (for pending requests)
+    initiatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
   },
   {
     timestamps: true,

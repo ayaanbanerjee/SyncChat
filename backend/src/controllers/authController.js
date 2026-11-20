@@ -35,12 +35,25 @@ const login = async (req, res, next) => {
   }
 };
 
+const guestLogin = async (req, res, next) => {
+  try {
+    const { user, token } = await authService.guestLogin();
+    return res.status(200).json({ success: true, token, user });
+  } catch (error) {
+    console.error('Guest login error:', error.message, error.code || '');
+    return next(error);
+  }
+};
+
 const getMe = (req, res) => {
   return res.status(200).json({ success: true, user: req.user });
 };
 
 const changePassword = async (req, res, next) => {
   try {
+    if (req.user.isGuest) {
+      return res.status(403).json({ success: false, message: 'Guests cannot change passwords.' });
+    }
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ success: false, message: 'Both passwords are required.' });
@@ -55,4 +68,4 @@ const changePassword = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe, changePassword };
+module.exports = { register, login, guestLogin, getMe, changePassword };

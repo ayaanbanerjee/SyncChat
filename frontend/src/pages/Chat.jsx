@@ -10,6 +10,7 @@ const Chat = () => {
   const navigate = useNavigate();
   const [activeConversation, setActiveConversation] = useState(null);
   const [conversations, setConversations] = useState([]);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) navigate('/');
@@ -17,6 +18,8 @@ const Chat = () => {
 
   const handleConversationSelect = useCallback((conv) => {
     setActiveConversation(conv);
+    // On mobile, hide sidebar when a conversation is selected
+    setShowSidebar(false);
   }, []);
 
   const handleConversationUpdate = useCallback((updated) => {
@@ -26,20 +29,31 @@ const Chat = () => {
     if (activeConversation?._id === updated._id) setActiveConversation(updated);
   }, [activeConversation]);
 
+  const handleMobileBack = useCallback(() => {
+    setShowSidebar(true);
+    setActiveConversation(null);
+  }, []);
+
   if (loading || !user) return null;
 
   return (
     <div className="chat-layout">
-      <Sidebar
-        activeConversationId={activeConversation?._id}
-        onSelect={handleConversationSelect}
-        conversations={conversations}
-        setConversations={setConversations}
-      />
-      <ConversationPanel
-        conversation={activeConversation}
-        onConversationUpdate={handleConversationUpdate}
-      />
+      <div className={`chat-sidebar-wrap ${showSidebar ? 'sidebar-visible' : 'sidebar-hidden'}`}>
+        <Sidebar
+          activeConversationId={activeConversation?._id}
+          onSelect={handleConversationSelect}
+          conversations={conversations}
+          setConversations={setConversations}
+          onMobileClose={() => setShowSidebar(false)}
+        />
+      </div>
+      <div className={`chat-panel-wrap ${!showSidebar ? 'panel-visible' : 'panel-hidden'}`}>
+        <ConversationPanel
+          conversation={activeConversation}
+          onConversationUpdate={handleConversationUpdate}
+          onMobileBack={handleMobileBack}
+        />
+      </div>
     </div>
   );
 };

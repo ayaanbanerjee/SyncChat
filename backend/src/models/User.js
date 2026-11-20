@@ -44,6 +44,20 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    blockedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    isGuest: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true, // adds createdAt and updatedAt automatically

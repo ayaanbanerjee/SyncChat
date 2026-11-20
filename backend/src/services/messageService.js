@@ -2,6 +2,7 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
+const { isBlocked } = require('./blockService');
 
 const PAGE_SIZE = 30;
 
@@ -37,6 +38,32 @@ const sendMessage = async ({ conversationId, senderId, text, type = 'text', repl
     const error = new Error('Conversation not found or access denied.');
     error.statusCode = 404;
     throw error;
+  }
+
+  // Enforce blocking in direct conversations
+  if (conversation.type === 'direct') {
+    const otherMember = conversation.members.find((m) => m.toString() !== senderId.toString());
+    if (otherMember) {
+      const blockedByOther = await isBlocked(otherMember.toString(), senderId.toString());
+      if (blockedByOther) {
+        const error = new Error('You cannot send messages to this user.');
+        error.statusCode = 403;
+        throw error;
+      }
+      const blockedByMe = await isBlocked(senderId.toString(), otherMember.toString());
+      if (blockedByMe) {
+        const error = new Error('Unblock this user to send messages.');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
+    // Enforce pending status — only initiator can send while pending
+    if (conversation.status === 'declined') {
+      const error = new Error('This conversation has been declined.');
+      error.statusCode = 403;
+      throw error;
+    }
   }
 
   const messageData = { conversationId, sender: senderId, type, replyTo: replyTo || null };

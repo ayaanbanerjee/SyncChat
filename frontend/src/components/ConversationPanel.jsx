@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   getMessages, sendMessage, sendFile, editMessage,
-  deleteMessage,
+  deleteMessage, blockUser, unblockUser, getBlockedUsers,
 } from '../services/api';
 import socket from '../services/socket';
 import toast from 'react-hot-toast';
@@ -14,7 +14,20 @@ import './ConversationPanel.css';
 
 const PAGE_SIZE = 30;
 
-const ConversationPanel = ({ conversation, onConversationUpdate }) => {
+const formatLastSeen = (date) => {
+  if (!date) return 'Offline';
+  const d = new Date(date);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'Last seen just now';
+  if (diffMins < 60) return `Last seen ${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `Last seen ${diffHours}h ago`;
+  return `Last seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+};
+
+const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [hasMore, setHasMore] = useState(false);
@@ -24,11 +37,28 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [lastSeenMap, setLastSeenMap] = useState({});
+  const [blockedUsers, setBlockedUsers] = useState(new Set());
+  const [isBlockedByOther, setIsBlockedByOther] = useState(false);
   const bottomRef = useRef(null);
   const listRef = useRef(null);
   const typingTimeout = useRef({});
 
   const convId = conversation?._id;
+  const myId = user._id?.toString();
+
+  const otherMember = conversation?.type === 'direct'
+    ? conversation.members?.find((m) => m._id?.toString() !== myId)
+    : null;
+
+  // Load blocked users list
+  useEffect(() => {
+    getBlockedUsers()
+      .then((res) => setBlockedUsers(new Set(res.data.users.map((u) => u._id?.toString()))))
+      .catch(() => {});
+  }, []);
+
+  const isOtherBlocked = otherMember ? blockedUsers.has(otherMember._id?.toString()) : false;
 
   // Load initial messages when conversation changes
   useEffect(() => {
@@ -40,7 +70,6 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
       .then((res) => {
         setMessages(res.data.messages);
         setHasMore(res.data.hasMore);
-        // Mark as read
         socket.emit('message:read', { conversationId: convId });
       })
       .catch(() => toast.error('Failed to load messages.'))
@@ -93,12 +122,15 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
       if (member) setTypingUsers((prev) => prev.filter((u) => u !== member.username));
     };
 
-    const handlePresence = ({ userId: uid, isOnline }) => {
+    const handlePresence = ({ userId: uid, isOnline, lastSeen }) => {
       setOnlineUsers((prev) => {
         const next = new Set(prev);
         if (isOnline) next.add(uid); else next.delete(uid);
         return next;
       });
+      if (!isOnline && lastSeen) {
+        setLastSeenMap((prev) => ({ ...prev, [uid]: lastSeen }));
+      }
     };
 
     socket.on('message:new', handleNewMessage);
@@ -127,7 +159,6 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
       const res = await getMessages(convId, cursor);
       setMessages((prev) => [...res.data.messages, ...prev]);
       setHasMore(res.data.hasMore);
-      // Maintain scroll position after prepending
       requestAnimationFrame(() => {
         if (listRef.current) {
           listRef.current.scrollTop = listRef.current.scrollHeight - prevScrollHeight;
@@ -187,6 +218,32 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
     socket.emit('typing:stop', { conversationId: convId });
   }, [convId]);
 
+  const handleBlock = async () => {
+    if (!otherMember) return;
+    try {
+      await blockUser(otherMember._id);
+      setBlockedUsers((prev) => new Set([...prev, otherMember._id?.toString()]));
+      toast.success(`${otherMember.name} blocked.`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to block user.');
+    }
+  };
+
+  const handleUnblock = async () => {
+    if (!otherMember) return;
+    try {
+      await unblockUser(otherMember._id);
+      setBlockedUsers((prev) => {
+        const next = new Set(prev);
+        next.delete(otherMember._id?.toString());
+        return next;
+      });
+      toast.success(`${otherMember.name} unblocked.`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to unblock user.');
+    }
+  };
+
   if (!conversation) {
     return (
       <div className="conv-panel conv-panel-empty">
@@ -198,34 +255,36 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
     );
   }
 
-  const myId = user._id?.toString();
-
   const convName = conversation.type === 'group'
     ? conversation.name
-    : conversation.members?.find((m) => m._id?.toString() !== myId)?.name || 'Chat';
+    : otherMember?.name || 'Chat';
 
   const convAvatar = conversation.type === 'group'
     ? conversation.groupImage
-    : conversation.members?.find((m) => m._id?.toString() !== myId)?.avatar;
+    : otherMember?.avatar;
 
-  const otherMember = conversation.type === 'direct'
-    ? conversation.members?.find((m) => m._id?.toString() !== myId)
-    : null;
+  const otherId = otherMember?._id?.toString();
+  const isOtherOnline = otherId ? (otherMember?.isOnline || onlineUsers.has(otherId)) : false;
+  const otherLastSeen = otherId ? (lastSeenMap[otherId] || otherMember?.lastSeen) : null;
 
-  const isOtherOnline = otherMember ? onlineUsers.has(otherMember._id) : false;
+  const isPending = conversation.status === 'pending';
+  const initiatedById = conversation.initiatedBy?._id?.toString() || conversation.initiatedBy?.toString();
+  const isInitiator = initiatedById === myId;
+  const canSendMessage = !isOtherBlocked && !(isPending && !isInitiator);
 
   return (
     <div className="conv-panel">
       {/* Header */}
       <div className="conv-header">
+        {onMobileBack && (
+          <button className="icon-btn mobile-back-btn" onClick={onMobileBack} title="Back">←</button>
+        )}
         <Avatar src={convAvatar} name={convName} size={38} />
         <div className="conv-header-info">
           <span className="conv-header-name">{convName}</span>
           {conversation.type === 'direct' && (
             <span className={`conv-header-status ${isOtherOnline ? 'online' : 'offline'}`}>
-              {isOtherOnline ? 'Online' : otherMember?.lastSeen
-                ? `Last seen ${new Date(otherMember.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                : 'Offline'}
+              {isOtherOnline ? 'Online' : formatLastSeen(otherLastSeen)}
             </span>
           )}
           {conversation.type === 'group' && (
@@ -234,12 +293,38 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
             </span>
           )}
         </div>
-        {conversation.type === 'group' && (
-          <button className="icon-btn" onClick={() => setShowGroupInfo((v) => !v)} title="Group Info">ℹ️</button>
-        )}
+        <div className="conv-header-actions">
+          {conversation.type === 'direct' && otherMember && (
+            <div className="conv-block-menu">
+              {isOtherBlocked ? (
+                <button className="icon-btn" onClick={handleUnblock} title="Unblock user">🔓</button>
+              ) : (
+                <button className="icon-btn" onClick={handleBlock} title="Block user">🚫</button>
+              )}
+            </div>
+          )}
+          {conversation.type === 'group' && (
+            <button className="icon-btn" onClick={() => setShowGroupInfo((v) => !v)} title="Group Info">ℹ️</button>
+          )}
+        </div>
       </div>
 
       <div className="conv-body">
+        {/* Pending request banner (recipient view) */}
+        {isPending && !isInitiator && (
+          <div className="conv-pending-banner">
+            <span>This is a message request. Accept to reply.</span>
+          </div>
+        )}
+
+        {/* Blocked banner */}
+        {isOtherBlocked && (
+          <div className="conv-blocked-banner">
+            You have blocked {otherMember?.name}.{' '}
+            <button onClick={handleUnblock}>Unblock</button>
+          </div>
+        )}
+
         {/* Message list */}
         <div className="conv-messages" ref={listRef} onScroll={handleScroll}>
           {loadingMore && <div className="conv-loading-more">Loading...</div>}
@@ -278,12 +363,20 @@ const ConversationPanel = ({ conversation, onConversationUpdate }) => {
           </div>
         )}
 
-        <MessageInput
-          onSend={handleSend}
-          onSendFile={handleSendFile}
-          onTyping={handleTyping}
-          onStopTyping={handleStopTyping}
-        />
+        {canSendMessage && !user.isGuest && (
+          <MessageInput
+            onSend={handleSend}
+            onSendFile={handleSendFile}
+            onTyping={handleTyping}
+            onStopTyping={handleStopTyping}
+          />
+        )}
+
+        {user.isGuest && (
+          <div className="conv-guest-input">
+            <span>👀 Demo mode — <a href="/signup">Register</a> to send messages</span>
+          </div>
+        )}
       </div>
 
       {showGroupInfo && (

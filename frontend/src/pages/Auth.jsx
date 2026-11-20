@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { loginUser, registerUser } from '../services/api';
+import { loginUser, registerUser, guestLogin } from '../services/api';
 import toast from 'react-hot-toast';
 import BrandLogo from '../components/BrandLogo';
 import './Auth.css';
@@ -11,6 +11,7 @@ const Auth = () => {
   const mode = location.pathname === '/signup' ? 'register' : 'login';
   const [form, setForm] = useState({ name: '', username: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -38,6 +39,19 @@ const Auth = () => {
     }
   };
 
+  const handleGuest = async () => {
+    setGuestLoading(true);
+    try {
+      const res = await guestLogin();
+      await login(res.data.token, res.data.user);
+      navigate('/chat');
+    } catch {
+      toast.error('Failed to start demo session.');
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
   return (
     <div className="auth-page">
       <div className="auth-card">
@@ -59,6 +73,16 @@ const Auth = () => {
             {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
+
+        {mode === 'login' && (
+          <>
+            <div className="auth-divider"><span>or</span></div>
+            <button className="auth-guest-btn" onClick={handleGuest} disabled={guestLoading}>
+              {guestLoading ? 'Starting demo...' : '👀 Continue as Guest'}
+            </button>
+            <p className="auth-guest-note">Explore SyncChat without an account. Read-only demo mode.</p>
+          </>
+        )}
 
         <p className="auth-switch">
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
