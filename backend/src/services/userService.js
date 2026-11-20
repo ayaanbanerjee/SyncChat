@@ -37,7 +37,23 @@ const updateProfile = async (userId, { name, bio }) => {
   return User.findByIdAndUpdate(userId, updates, { new: true, runValidators: true }).select('-passwordHash');
 };
 
-const uploadAvatar = (userId, fileBuffer) => {
+const uploadAvatar = (userId, fileBuffer, mimeType) => {
+  // If Cloudinary is not configured, fall back to base64 data URL stored in MongoDB
+  const cloudinaryConfigured =
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET;
+
+  if (!cloudinaryConfigured) {
+    const base64 = fileBuffer.toString('base64');
+    const dataUrl = `data:${mimeType || 'image/jpeg'};base64,${base64}`;
+    return User.findByIdAndUpdate(
+      userId,
+      { avatar: dataUrl },
+      { new: true }
+    ).select('-passwordHash');
+  }
+
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {

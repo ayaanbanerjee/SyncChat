@@ -50,6 +50,7 @@ export const startDirect = (targetUserId) => api.post('/conversations/direct', {
 export const createGroup = (data) => api.post('/conversations/group', data);
 export const updateGroup = (id, data) => api.put(`/conversations/${id}`, data);
 export const deleteGroup = (id) => api.delete(`/conversations/${id}`);
+export const deleteDirect = (id) => api.delete(`/conversations/${id}/direct`);
 export const addMembers = (id, memberIds) => api.post(`/conversations/${id}/members`, { memberIds });
 export const removeMember = (id, userId) => api.delete(`/conversations/${id}/members/${userId}`);
 export const assignAdmin = (id, userId) => api.post(`/conversations/${id}/admins/${userId}`);

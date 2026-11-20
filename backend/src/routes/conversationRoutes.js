@@ -2,7 +2,7 @@ const express = require('express');
 const { protect } = require('../middleware/authMiddleware');
 const {
   getConversations, getConversation, startDirect, createGroup,
-  updateGroup, deleteGroup, addMembers, removeMember, assignAdmin, removeAdmin,
+  updateGroup, deleteGroup, deleteDirect, addMembers, removeMember, assignAdmin, removeAdmin,
   getMessageRequests, acceptRequest, declineRequest,
 } = require('../controllers/conversationController');
 
@@ -17,6 +17,7 @@ router.post('/direct', startDirect);
 router.post('/group', createGroup);
 router.put('/:id', updateGroup);
 router.delete('/:id', deleteGroup);
+router.delete('/:id/direct', deleteDirect);
 router.post('/:id/members', addMembers);
 router.delete('/:id/members/:userId', removeMember);
 router.post('/:id/admins/:userId', assignAdmin);

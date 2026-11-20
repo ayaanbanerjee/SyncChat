@@ -99,6 +99,15 @@ const deleteGroup = async (req, res, next) => {
   }
 };
 
+const deleteDirect = async (req, res, next) => {
+  try {
+    await conversationService.deleteDirect(req.params.id, req.user._id);
+    return res.status(200).json({ success: true, message: 'Conversation deleted.' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const addMembers = async (req, res, next) => {
   try {
     const { memberIds } = req.body;
@@ -138,6 +147,6 @@ const removeAdmin = async (req, res, next) => {
 
 module.exports = {
   getConversations, getConversation, startDirect, createGroup,
-  updateGroup, deleteGroup, addMembers, removeMember, assignAdmin, removeAdmin,
+  updateGroup, deleteGroup, deleteDirect, addMembers, removeMember, assignAdmin, removeAdmin,
   getMessageRequests, acceptRequest, declineRequest,
 };

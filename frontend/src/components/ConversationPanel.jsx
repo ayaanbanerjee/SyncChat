@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   getMessages, sendMessage, sendFile, editMessage,
   deleteMessage, blockUser, unblockUser, getBlockedUsers,
-  acceptRequest, declineRequest,
+  acceptRequest, declineRequest, deleteDirect,
 } from '../services/api';
 import socket from '../services/socket';
 import toast from 'react-hot-toast';
@@ -11,6 +11,7 @@ import MessageItem from './MessageItem';
 import MessageInput from './MessageInput';
 import GroupInfoPanel from './GroupInfoPanel';
 import Avatar from './Avatar';
+import UserProfileModal from './UserProfileModal';
 import './ConversationPanel.css';
 
 const PAGE_SIZE = 30;
@@ -25,7 +26,9 @@ const formatLastSeen = (date) => {
   if (diffMins < 60) return `Last seen ${diffMins}m ago`;
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `Last seen ${diffHours}h ago`;
-  return `Last seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+  const dateStr = d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `Last seen ${dateStr}, ${timeStr}`;
 };
 
 const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack, onRequestHandled }) => {
@@ -41,6 +44,9 @@ const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack, o
   const [lastSeenMap, setLastSeenMap] = useState({});
   const [blockedUsers, setBlockedUsers] = useState(new Set());
   const [isBlockedByOther, setIsBlockedByOther] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const menuRef = useRef(null);
   const bottomRef = useRef(null);
   const listRef = useRef(null);
   const typingTimeout = useRef({});
@@ -245,6 +251,34 @@ const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack, o
     }
   };
 
+  // Close menu on outside click
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMenu]);
+
+  const handleDeleteChat = async () => {
+    setShowMenu(false);
+    if (!window.confirm('Delete this conversation? This cannot be undone.')) return;
+    try {
+      await deleteDirect(conversation._id);
+      toast.success('Conversation deleted.');
+      if (onRequestHandled) onRequestHandled('declined', conversation);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete conversation.');
+    }
+  };
+
+  const handleBlockFromMenu = async () => {
+    setShowMenu(false);
+    if (!window.confirm(`Block ${otherMember?.name}? They won't be able to message you.`)) return;
+    await handleBlock();
+  };
+
   if (!conversation) {
     return (
       <div className="conv-panel conv-panel-empty">
@@ -280,27 +314,50 @@ const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack, o
         {onMobileBack && (
           <button className="icon-btn mobile-back-btn" onClick={onMobileBack} title="Back">←</button>
         )}
-        <Avatar src={convAvatar} name={convName} size={38} />
-        <div className="conv-header-info">
-          <span className="conv-header-name">{convName}</span>
-          {conversation.type === 'direct' && (
-            <span className={`conv-header-status ${isOtherOnline ? 'online' : 'offline'}`}>
-              {isOtherOnline ? 'Online' : formatLastSeen(otherLastSeen)}
-            </span>
-          )}
-          {conversation.type === 'group' && (
-            <span className="conv-header-status">
-              {conversation.members?.length} members
-            </span>
-          )}
-        </div>
+        <button
+          className="conv-header-identity"
+          onClick={() => conversation.type === 'direct' && otherMember && setShowUserProfile(true)}
+          style={{ cursor: conversation.type === 'direct' ? 'pointer' : 'default' }}
+          title={conversation.type === 'direct' ? `View ${convName}'s profile` : undefined}
+        >
+          <Avatar src={convAvatar} name={convName} size={38} />
+          <div className="conv-header-info">
+            <span className="conv-header-name">{convName}</span>
+            {conversation.type === 'direct' && (
+              <span className={`conv-header-status ${isOtherOnline ? 'online' : 'offline'}`}>
+                {isOtherOnline ? 'Online' : formatLastSeen(otherLastSeen)}
+              </span>
+            )}
+            {conversation.type === 'group' && (
+              <span className="conv-header-status">
+                {conversation.members?.length} members
+              </span>
+            )}
+          </div>
+        </button>
         <div className="conv-header-actions">
           {conversation.type === 'direct' && otherMember && (
-            <div className="conv-block-menu">
-              {isOtherBlocked ? (
-                <button className="icon-btn" onClick={handleUnblock} title="Unblock user">🔓</button>
-              ) : (
-                <button className="icon-btn" onClick={handleBlock} title="Block user">🚫</button>
+            <div className="conv-menu-wrap" ref={menuRef}>
+              <button
+                className="icon-btn conv-menu-btn"
+                onClick={() => setShowMenu((v) => !v)}
+                title="More options"
+              >⋮</button>
+              {showMenu && (
+                <div className="conv-dropdown">
+                  <button className="conv-dropdown-item danger" onClick={handleDeleteChat}>
+                    🗑 Delete Chat
+                  </button>
+                  {isOtherBlocked ? (
+                    <button className="conv-dropdown-item" onClick={async () => { setShowMenu(false); await handleUnblock(); }}>
+                      🔓 Unblock {otherMember.name}
+                    </button>
+                  ) : (
+                    <button className="conv-dropdown-item danger" onClick={handleBlockFromMenu}>
+                      🚫 Block {otherMember.name}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -407,6 +464,10 @@ const ConversationPanel = ({ conversation, onConversationUpdate, onMobileBack, o
           onUpdate={onConversationUpdate}
           onClose={() => setShowGroupInfo(false)}
         />
+      )}
+
+      {showUserProfile && otherMember && (
+        <UserProfileModal user={otherMember} onClose={() => setShowUserProfile(false)} />
       )}
     </div>
   );

@@ -220,16 +220,29 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <button className="sidebar-avatar-btn" onClick={() => setShowProfile(true)}>
-          <Avatar src={user.avatar} name={user.name} size={36} />
-        </button>
-        <span className="sidebar-title"><BrandLogo compact /></span>
+        <span className="sidebar-title"><BrandLogo /></span>
         <div className="sidebar-header-actions">
           <NotificationBell />
-          <button className="icon-btn" title="New Group" onClick={() => setShowGroupModal(true)}>👥</button>
-          <button className="icon-btn" title="Logout" onClick={logout}>⏻</button>
+          <button className="icon-btn" title="New Group" aria-label="New Group" onClick={() => setShowGroupModal(true)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm11-3v6m3-3h-6" /></svg>
+          </button>
+          <button className="icon-btn" title="Logout" aria-label="Logout" onClick={logout}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3m9-9h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" /></svg>
+          </button>
         </div>
       </div>
+
+      <button className="sidebar-profile" onClick={() => setShowProfile(true)} aria-label="Open profile">
+        <span className="sidebar-profile-avatar">
+          <Avatar src={user.avatar} name={user.name} size={42} />
+          <span className="profile-presence" />
+        </span>
+        <span className="sidebar-profile-info">
+          <span className="sidebar-profile-name">{user.name}</span>
+          <span className="sidebar-profile-caption">{user.isGuest ? 'Demo account' : `@${user.username || 'your profile'}`}</span>
+        </span>
+        <svg className="profile-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+      </button>
 
       {user.isGuest && (
         <div className="sidebar-guest-banner">
@@ -238,8 +251,10 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
       )}
 
       <div className="sidebar-search">
+        <svg className="sidebar-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
         <input
-          placeholder="Search users..."
+          aria-label="Search users"
+          placeholder="Search people..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -263,6 +278,10 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
         </div>
       ) : (
         <div className="sidebar-conversations">
+          <div className="sidebar-section-heading">
+            <span>Recent chats</span>
+            {conversations.length > 0 && <span className="sidebar-chat-count">{conversations.length}</span>}
+          </div>
 
           {/* ── Message Requests Section ── */}
           {requests.length > 0 && (
@@ -271,9 +290,10 @@ const Sidebar = ({ activeConversationId, onSelect, conversations, setConversatio
                 className="requests-section-header"
                 onClick={() => setShowRequests((v) => !v)}
               >
+                <span className="requests-icon" aria-hidden="true">✉</span>
                 <span>Message Requests</span>
                 <span className="requests-count">{requests.length}</span>
-                <span className="requests-chevron">{showRequests ? '▲' : '▼'}</span>
+                <svg className={`requests-chevron ${showRequests ? 'expanded' : ''}`} viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
               </button>
 
               {showRequests && (

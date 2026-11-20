@@ -35,7 +35,7 @@ const uploadAvatar = async (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded.' });
     }
-    const user = await userService.uploadAvatar(req.user._id, req.file.buffer);
+    const user = await userService.uploadAvatar(req.user._id, req.file.buffer, req.file.mimetype);
     return res.status(200).json({ success: true, user });
   } catch (error) {
     return next(error);

@@ -244,6 +244,16 @@ const deleteGroup = async (conversationId, requesterId) => {
   await conversation.deleteOne();
 };
 
+// Delete a direct conversation (any member can delete)
+const deleteDirect = async (conversationId, requesterId) => {
+  const conversation = await Conversation.findOne({ _id: conversationId, members: requesterId });
+  if (!conversation) {
+    const error = new Error('Conversation not found.'); error.statusCode = 404; throw error;
+  }
+  await Message.deleteMany({ conversationId });
+  await conversation.deleteOne();
+};
+
 module.exports = {
   getOrCreateDirect,
   createGroup,
@@ -258,4 +268,5 @@ module.exports = {
   removeAdmin,
   updateGroup,
   deleteGroup,
+  deleteDirect,
 };
